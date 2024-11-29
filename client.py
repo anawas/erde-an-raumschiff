@@ -68,7 +68,7 @@ def main():
         logger.error(f"Could not connect, cause {e.args}")
         exit(-1)
 
-    # see wihich folders we have. They are probably names like "type_I" 
+    # see wihich folders we have. They are probably named like "type_I" 
     path_names = get_folders(client, "/eCallisto/bursts")
 
     logger.info("Downloading data")
