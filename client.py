@@ -53,7 +53,7 @@ def get_folders(client: Client, remote_base_dir: str) -> List[str]:
             # we get the full path up to the url. This also includes the
             # username of the account, which may vary. Thus, we
             # cut the path on the location where the remote_base_dir
-            # can be found. This gives the true path. We then clue
+            # can be found. This gives the true path. We then glue
             # the path togehter again.
             dir_name = dir_name.split(remote_base_dir)
             path_names.append(f"{remote_base_dir}{dir_name[1]}")
