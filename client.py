@@ -1,6 +1,7 @@
 import logging
 import os
 from typing import List
+from tqdm import trange
 
 from dotenv import load_dotenv
 from webdav3.client import Client
@@ -68,13 +69,15 @@ def main():
         logger.error(f"Could not connect, cause {e.args}")
         exit(-1)
 
-    # see wihich folders we have. They are probably named like "type_I" 
+    # see wihich folders we have. They are probably named like "type_I"
+    logger.info("Getting folders on server...")
     path_names = get_folders(client, "/eCallisto/bursts")
 
     logger.info("Downloading data")
-    for path in path_names:
+    for i in trange(0, len(path_names)):
+        path = path_names[i]
         last_folder = path.split("/")[-2]
-        get_files(client, path, f"e:\\ecallisto\\{last_folder}")
+        get_files(client, path, f"/Volumes/Daten/ecallisto/{last_folder}")
 
 if __name__ == "__main__":
     main()
