@@ -1,0 +1,5 @@
+name: ecallisto
+dependencies:
+- python-dotenv
+- webdavclient3
+- tqdm
