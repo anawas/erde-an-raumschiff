@@ -1,9 +1,11 @@
 import logging
 import os
+import sqlite3
 from typing import List
-from tqdm import trange
 
+from pathlib import Path
 from dotenv import load_dotenv
+from tqdm import trange
 from webdav3.client import Client
 
 logging.basicConfig(level=logging.INFO)
@@ -19,6 +21,19 @@ options = {
     "verbose": True,
 }
 
+conn = sqlite3.connect("file_db.sqlite")
+cur = conn.cursor()
+
+def get_file_list(client: Client, remote_dir: str):
+    files = client.list(remote_dir, get_info=True)
+    cur.execute("CREATE TABLE files(name, size, downloaded)")
+    get_file_list(client, remote_dir)
+
+    for file in files:
+        if file["isdir"] == False:
+            cur.execute("INSERT INTO files VALUES (?, ?, ?)", (file["path"], int(file["size"]), False))
+            conn.commit()
+
 def get_files(client: Client, remote_dir: str, local_dir:str) -> None:
     """Downloads all the files in `remote_dir`
 
@@ -27,11 +42,17 @@ def get_files(client: Client, remote_dir: str, local_dir:str) -> None:
         remote_dir (str): The folder path on remote server
         local_dir (str): Where to download the files
     """
-    def callback(current, total):
-        if current == 0:
-            print(f"Downloading {total} bytes")
-        
-    client.download_directory(remote_dir, local_dir, progress=callback)
+    cur.execute("SELECT rowid, * FROM files")
+    for row in cur:
+        id_ = row[0]
+        filepath = Path(row[1])
+        filename = filepath.name
+        folder = filepath.parent.name
+
+        client.download_sync(os.path.join(remote_dir, folder), os.path.join(local_dir, folder, filename))
+        cur.execute("UPDATE files SET downloaded = True WHERE  id = ?", (id_))
+        conn.commit()
+        logger.info(f"Downloaded {filename}")
 
 def get_folders(client: Client, remote_base_dir: str) -> List[str]:
     """Gets a list of path names where burst image can be found¨
@@ -49,7 +70,7 @@ def get_folders(client: Client, remote_base_dir: str) -> List[str]:
     for i in range(1, len(files)):
         # First entry is current dir
         file_info = files[i]
-        if file_info["isdir"]:
+        if file_info["isdir"] == True:
             dir_name: str = file_info["path"]
             # we get the full path up to the url. This also includes the
             # username of the account, which may vary. Thus, we
@@ -61,7 +82,7 @@ def get_folders(client: Client, remote_base_dir: str) -> List[str]:
     return path_names
 
 def main():
-    logger.info(f"Connecting to server {os.getenv("HOST_URL")}")
+    logger.info(f"Connecting to server {os.getenv('HOST_URL')}")
     try:
         client = Client(options)
         logger.info("Success")
@@ -70,14 +91,11 @@ def main():
         exit(-1)
 
     # see wihich folders we have. They are probably named like "type_I"
-    logger.info("Getting folders on server...")
-    path_names = get_folders(client, "/eCallisto/bursts")
-
-    logger.info("Downloading data")
-    # for i in trange(0, len(path_names)):
-    path = path_names[2]
-    last_folder = path.split("/")[-2]
-    get_files(client, path, f"./data/{last_folder}")
+    # logger.info("Getting folders on server...")
+    # path_names = get_folders(client, "/eCallisto/bursts")
+    # path = path_names[2]
+    logger.info("Reading files to download from db...")
+    get_files(client, "/eCallisto/bursts", "./data")
 
 if __name__ == "__main__":
     main()
