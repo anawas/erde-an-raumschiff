@@ -34,6 +34,13 @@ def get_file_list(client: Client, remote_dir: str):
             cur.execute("INSERT INTO files VALUES (?, ?, ?)", (file["path"], int(file["size"]), False))
             conn.commit()
 
+def update_db(id: str):
+    cur1 = conn.cursor()
+    cur1.execute("UPDATE files SET downloaded = 1 WHERE rowid = ?", (id,))
+    conn.commit()
+    cur1.close()
+
+
 def get_files(client: Client, remote_dir: str, local_dir:str) -> None:
     """Downloads all the files in `remote_dir`
 
@@ -42,17 +49,21 @@ def get_files(client: Client, remote_dir: str, local_dir:str) -> None:
         remote_dir (str): The folder path on remote server
         local_dir (str): Where to download the files
     """
-    cur.execute("SELECT rowid, * FROM files")
-    for row in cur:
+    cur.execute("SELECT rowid, name, size, downloaded FROM files")
+    while True:
+        row = cur.fetchone()
+        if row is None:
+            break
+        if row[3] == 1:
+            continue
         id_ = row[0]
         filepath = Path(row[1])
         filename = filepath.name
         folder = filepath.parent.name
-
-        client.download_sync(os.path.join(remote_dir, folder), os.path.join(local_dir, folder, filename))
-        cur.execute("UPDATE files SET downloaded = True WHERE  id = ?", (id_))
-        conn.commit()
+        # print(f"{os.path.join(remote_dir, folder, filename)} -> {os.path.join(local_dir, folder, filename)}")
+        client.download_sync(os.path.join(remote_dir, folder, filename), os.path.join(local_dir, folder, filename))
         logger.info(f"Downloaded {filename}")
+        update_db(id_)
 
 def get_folders(client: Client, remote_base_dir: str) -> List[str]:
     """Gets a list of path names where burst image can be found¨
